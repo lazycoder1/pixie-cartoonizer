@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import ImageUploader from "@/components/ImageUploader";
 import Gallery from "@/components/Gallery";
+import BeforeAfterShowcase from "@/components/BeforeAfterShowcase";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { cartoonizeImage } from "@/services/api";
 import { toast } from "sonner";
@@ -99,7 +100,11 @@ const HomePage = () => {
         
         <ImageUploader onImageSelect={handleImageSelect} />
         
+        {/* Show user's gallery if they have images */}
         <Gallery images={images} />
+        
+        {/* Showcase section with before/after examples */}
+        <BeforeAfterShowcase />
       </main>
     </div>
   );
