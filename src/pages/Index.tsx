@@ -1,111 +1,90 @@
 
-import React, { useState, useEffect } from "react";
-import Navbar from "@/components/Navbar";
-import ImageUploader from "@/components/ImageUploader";
-import Gallery from "@/components/Gallery";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthProvider } from "@/hooks/useAuth";
 import BeforeAfterShowcase from "@/components/BeforeAfterShowcase";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { cartoonizeImage } from "@/services/api";
-import { toast } from "sonner";
-
-interface CartoonImage {
-  id: string;
-  original: string;
-  cartoon: string;
-  createdAt: Date;
-}
 
 const HomePage = () => {
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [images, setImages] = useState<CartoonImage[]>([]);
-  const { user, useCredit } = useAuth();
+  const navigate = useNavigate();
+  const { user, signIn, isLoading } = useAuth();
 
-  useEffect(() => {
-    // Load saved images from localStorage
-    const savedImages = localStorage.getItem("pixie-images");
-    if (savedImages) {
-      try {
-        const parsedImages = JSON.parse(savedImages);
-        // Convert string dates back to Date objects
-        const processedImages = parsedImages.map((img: any) => ({
-          ...img,
-          createdAt: new Date(img.createdAt)
-        }));
-        setImages(processedImages);
-      } catch (error) {
-        console.error("Failed to parse saved images:", error);
-      }
+  // If user is already logged in, redirect to dashboard
+  React.useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
     }
-  }, []);
+  }, [user, navigate]);
 
-  const handleImageSelect = (file: File) => {
-    setSelectedImage(file);
-  };
-
-  const processImage = async () => {
-    if (!selectedImage || !user) return;
-    
-    // Check if user has credits
-    if (!useCredit()) {
-      return;
-    }
-    
+  const handleGetStarted = async () => {
     try {
-      setIsProcessing(true);
-      toast.info("Processing your image...");
-      
-      // In a real app, this would call the backend API
-      // For now, we'll use our mock implementation
-      const result = await cartoonizeImage(selectedImage);
-      
-      // Create a new image entry
-      const newImage: CartoonImage = {
-        id: result.id,
-        original: URL.createObjectURL(selectedImage),
-        cartoon: result.cartoonUrl,
-        createdAt: new Date()
-      };
-      
-      // Add to state
-      const updatedImages = [newImage, ...images];
-      setImages(updatedImages);
-      
-      // Save to localStorage
-      localStorage.setItem("pixie-images", JSON.stringify(updatedImages));
-      
-      toast.success("Image cartoonized successfully!");
-      
+      await signIn();
+      navigate("/dashboard");
     } catch (error) {
-      console.error("Error processing image:", error);
-      toast.error("Failed to process image. Please try again.");
-    } finally {
-      setIsProcessing(false);
+      console.error("Error during sign in:", error);
     }
   };
 
   return (
-    <div className="min-h-screen">
-      <Navbar />
-      
-      <main className="container mx-auto px-4 py-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <h1 className="text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-purple-dark">
-            Transform Your Photos into Cartoons
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            Upload your image and let our AI transform it into a beautiful cartoon version using the power of OpenAI.
-          </p>
-        </div>
-        
-        <ImageUploader onImageSelect={handleImageSelect} />
-        
-        {/* Show user's gallery if they have images */}
-        <Gallery images={images} />
-        
-        {/* Showcase section with before/after examples */}
+    <div className="min-h-screen bg-gradient-to-b from-background to-background/95">
+      {/* Hero Section */}
+      <div className="container mx-auto px-4 pt-16 pb-24 text-center">
+        <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-purple-dark">
+          Transform Photos into Art
+        </h1>
+        <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto mb-10">
+          Upload your photos and watch them transform into stunning cartoon artwork using the power of AI.
+        </p>
+        <Button 
+          onClick={handleGetStarted} 
+          disabled={isLoading}
+          size="lg"
+          className="bg-gradient-to-r from-brand-purple to-brand-purple-dark hover:opacity-90 text-lg px-10 py-6 h-auto"
+        >
+          {isLoading ? "Loading..." : "Get Started"}
+        </Button>
+      </div>
+
+      {/* Showcase Section */}
+      <div className="container mx-auto px-4 py-16">
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-brand-purple to-brand-purple-dark">
+          See the Magic in Action
+        </h2>
         <BeforeAfterShowcase />
-      </main>
+      </div>
+
+      {/* Features Section */}
+      <div className="container mx-auto px-4 py-16 bg-muted/50">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="bg-background p-6 rounded-xl shadow-sm">
+            <div className="h-12 w-12 rounded-full bg-brand-purple/20 flex items-center justify-center mb-4 mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-purple"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+            </div>
+            <h3 className="text-xl font-semibold text-center mb-2">Easy to Use</h3>
+            <p className="text-center text-muted-foreground">Upload your photo and our AI will transform it in seconds</p>
+          </div>
+          <div className="bg-background p-6 rounded-xl shadow-sm">
+            <div className="h-12 w-12 rounded-full bg-brand-purple/20 flex items-center justify-center mb-4 mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-purple"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </div>
+            <h3 className="text-xl font-semibold text-center mb-2">High Quality</h3>
+            <p className="text-center text-muted-foreground">Advanced AI algorithms ensure beautiful cartoon transformations</p>
+          </div>
+          <div className="bg-background p-6 rounded-xl shadow-sm">
+            <div className="h-12 w-12 rounded-full bg-brand-purple/20 flex items-center justify-center mb-4 mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-brand-purple"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"></path><path d="m6.08 9.5-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"></path><path d="m6.08 14.5-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"></path></svg>
+            </div>
+            <h3 className="text-xl font-semibold text-center mb-2">Multiple Styles</h3>
+            <p className="text-center text-muted-foreground">Choose from different cartoon styles for your images</p>
+          </div>
+        </div>
+      </div>
+      
+      {/* Footer */}
+      <footer className="container mx-auto px-4 py-12 text-center">
+        <p className="text-sm text-muted-foreground">© 2023 PixieCartoon. All rights reserved.</p>
+      </footer>
     </div>
   );
 };

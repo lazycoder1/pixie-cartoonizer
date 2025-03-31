@@ -5,10 +5,21 @@ import { Image, Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 
-const ImageUploader = ({ onImageSelect }: { onImageSelect: (file: File) => void }) => {
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+interface ImageUploaderProps {
+  onImageSelect: (file: File) => void;
+  selectedImage?: File | null;
+  isProcessing?: boolean;
+  onProcessImage?: () => void;
+}
+
+const ImageUploader = ({ 
+  onImageSelect,
+  selectedImage,
+  isProcessing = false,
+  onProcessImage
+}: ImageUploaderProps) => {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, credits } = useAuth();
 
@@ -27,7 +38,7 @@ const ImageUploader = ({ onImageSelect }: { onImageSelect: (file: File) => void 
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      setSelectedImage(e.target?.result as string);
+      setPreviewUrl(e.target?.result as string);
     };
     reader.readAsDataURL(file);
     onImageSelect(file);
@@ -61,22 +72,6 @@ const ImageUploader = ({ onImageSelect }: { onImageSelect: (file: File) => void 
     fileInputRef.current?.click();
   };
 
-  const processImage = async () => {
-    if (!selectedImage || !user || credits <= 0) return;
-    
-    try {
-      setIsLoading(true);
-      // Process image logic will be implemented in the cartoonize function
-      // For now just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success("Image cartoonized successfully!");
-    } catch (error) {
-      toast.error("Failed to process image");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <div className="w-full max-w-3xl mx-auto mt-8">
       <div 
@@ -84,7 +79,7 @@ const ImageUploader = ({ onImageSelect }: { onImageSelect: (file: File) => void 
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={!selectedImage ? triggerFileInput : undefined}
+        onClick={!previewUrl ? triggerFileInput : undefined}
       >
         <input 
           type="file" 
@@ -94,35 +89,37 @@ const ImageUploader = ({ onImageSelect }: { onImageSelect: (file: File) => void 
           accept="image/*"
         />
         
-        {selectedImage ? (
+        {previewUrl ? (
           <div className="w-full relative">
             <img 
-              src={selectedImage} 
+              src={previewUrl} 
               alt="Selected" 
               className="max-h-[500px] mx-auto rounded-lg object-contain"
             />
             <div className="mt-6 flex justify-center">
               <Button 
-                onClick={() => setSelectedImage(null)} 
+                onClick={() => setPreviewUrl(null)} 
                 variant="outline" 
                 className="mr-2"
               >
                 Change Image
               </Button>
-              <Button 
-                onClick={processImage}
-                disabled={isLoading || !user || credits <= 0}
-                className="bg-gradient-to-r from-brand-purple to-brand-purple-dark hover:opacity-90 auth-button"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  'Cartoonize Image'
-                )}
-              </Button>
+              {onProcessImage && (
+                <Button 
+                  onClick={onProcessImage}
+                  disabled={isProcessing || !user || credits <= 0}
+                  className="bg-gradient-to-r from-brand-purple to-brand-purple-dark hover:opacity-90 auth-button"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    'Cartoonize Image'
+                  )}
+                </Button>
+              )}
             </div>
             {!user && (
               <p className="text-center mt-2 text-sm text-muted-foreground">Sign in to cartoonize this image</p>
