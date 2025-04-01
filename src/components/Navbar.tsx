@@ -5,7 +5,7 @@ import { Ticket, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
-  const { user, credits, isLoading, signIn, signOut } = useAuth();
+  const { user, profile, credits, isLoading, signIn, signOut } = useAuth();
 
   return (
     <nav className="w-full py-4 px-6 flex items-center justify-between border-b border-border">
@@ -30,13 +30,13 @@ const Navbar = () => {
               className="flex items-center space-x-2 auth-button"
               onClick={signOut}
             >
-              <span className="font-medium">{user.name}</span>
-              <div className="h-8 w-8 rounded-full bg-brand-purple-light flex items-center justify-center">
-                {user.photoURL ? (
+              <span className="font-medium">{profile?.name || user.email}</span>
+              <div className="h-8 w-8 rounded-full bg-brand-purple-light flex items-center justify-center overflow-hidden">
+                {profile?.photo_url ? (
                   <img 
-                    src={user.photoURL} 
-                    alt={user.name || "User"} 
-                    className="h-7 w-7 rounded-full" 
+                    src={profile.photo_url} 
+                    alt={profile?.name || "User"} 
+                    className="h-full w-full object-cover" 
                   />
                 ) : (
                   <User size={16} className="text-brand-purple" />

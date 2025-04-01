@@ -20,7 +20,7 @@ const HomePage = () => {
   const handleGetStarted = async () => {
     try {
       await signIn();
-      navigate("/dashboard");
+      // The redirect will happen in the useEffect when auth state changes
     } catch (error) {
       console.error("Error during sign in:", error);
     }
@@ -42,7 +42,7 @@ const HomePage = () => {
           size="lg"
           className="bg-gradient-to-r from-brand-purple to-brand-purple-dark hover:opacity-90 text-lg px-10 py-6 h-auto"
         >
-          {isLoading ? "Loading..." : "Get Started"}
+          {isLoading ? "Loading..." : "Get Started with Google"}
         </Button>
       </div>
 

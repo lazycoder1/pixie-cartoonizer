@@ -55,7 +55,8 @@ const DashboardContent = () => {
     if (!selectedImage || !user) return;
     
     // Check if user has credits
-    if (!useCredit()) {
+    const hasCreditAvailable = await useCredit();
+    if (!hasCreditAvailable) {
       return;
     }
     

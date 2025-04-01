@@ -1,70 +1,102 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
+import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
-interface User {
-  uid: string;
+interface Profile {
+  id: string;
   name: string | null;
   email: string | null;
-  photoURL: string | null;
+  photo_url: string | null;
+  credits: number;
 }
 
 interface AuthContextType {
   user: User | null;
+  profile: Profile | null;
   credits: number;
   isLoading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  addCredits: (amount: number) => void;
-  useCredit: () => boolean;
+  addCredits: (amount: number) => Promise<void>;
+  useCredit: () => Promise<boolean>;
 }
-
-// Mock authentication for development - this will be replaced with real Google Auth
-const mockUser: User = {
-  uid: "mock-user-id",
-  name: "Demo User",
-  email: "demo@example.com",
-  photoURL: null,
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [credits, setCredits] = useState<number>(0);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    // Check if user is saved in localStorage (mock auth persistence)
-    const savedUser = localStorage.getItem("pixie-user");
-    const savedCredits = localStorage.getItem("pixie-credits");
-    
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-      setCredits(savedCredits ? parseInt(savedCredits, 10) : 3);
+  // Fetch user profile data
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (data) {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
     }
-    
-    setIsLoading(false);
+  };
+
+  // Set up auth state listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, currentSession) => {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        
+        // Fetch profile in a separate execution context to avoid recursive update
+        if (currentSession?.user) {
+          setTimeout(() => {
+            fetchProfile(currentSession.user.id);
+          }, 0);
+        } else {
+          setProfile(null);
+        }
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
+      setUser(currentSession?.user ?? null);
+      
+      if (currentSession?.user) {
+        fetchProfile(currentSession.user.id);
+      }
+    }).finally(() => {
+      setIsLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async () => {
     setIsLoading(true);
     try {
-      // Mock sign in - to be replaced with actual Google Auth
-      // In real implementation, this would be replaced with Firebase/Google Auth
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
-      setUser(mockUser);
-      setCredits(3); // Give new users 3 credits
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin
+        }
+      });
       
-      // Save to localStorage (mock persistence)
-      localStorage.setItem("pixie-user", JSON.stringify(mockUser));
-      localStorage.setItem("pixie-credits", "3");
-      
-      toast.success("Successfully signed in!");
-    } catch (error) {
-      toast.error("Failed to sign in. Please try again.");
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(`Failed to sign in: ${error.message}`);
       console.error("Sign in error:", error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -72,49 +104,75 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     setIsLoading(true);
     try {
-      // Mock sign out
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setUser(null);
-      
-      // Clean up localStorage
-      localStorage.removeItem("pixie-user");
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
       toast.success("Successfully signed out");
-    } catch (error) {
-      toast.error("Failed to sign out");
+    } catch (error: any) {
+      toast.error(`Failed to sign out: ${error.message}`);
       console.error("Sign out error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const addCredits = (amount: number) => {
-    const newCredits = credits + amount;
-    setCredits(newCredits);
-    if (user) {
-      localStorage.setItem("pixie-credits", newCredits.toString());
+  const addCredits = async (amount: number) => {
+    if (!user || !profile) return;
+    
+    try {
+      const newCredits = profile.credits + amount;
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ credits: newCredits })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setProfile(prev => prev ? { ...prev, credits: newCredits } : null);
+      
+      toast.success(`${amount} credits added to your account!`);
+    } catch (error: any) {
+      toast.error(`Failed to add credits: ${error.message}`);
+      console.error("Error adding credits:", error);
     }
-    toast.success(`${amount} credits added to your account!`);
   };
 
-  const useCredit = () => {
-    if (!user || credits <= 0) {
+  const useCredit = async () => {
+    if (!user || !profile || profile.credits <= 0) {
       if (user) {
         toast.error("No credits available");
       }
       return false;
     }
     
-    const newCredits = credits - 1;
-    setCredits(newCredits);
-    localStorage.setItem("pixie-credits", newCredits.toString());
-    return true;
+    try {
+      const newCredits = profile.credits - 1;
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ credits: newCredits })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setProfile(prev => prev ? { ...prev, credits: newCredits } : null);
+      
+      return true;
+    } catch (error: any) {
+      toast.error(`Failed to use credit: ${error.message}`);
+      console.error("Error using credit:", error);
+      return false;
+    }
   };
 
   return (
     <AuthContext.Provider value={{ 
       user, 
-      credits, 
+      profile, 
+      credits: profile?.credits ?? 0, 
       isLoading, 
       signIn, 
       signOut,
