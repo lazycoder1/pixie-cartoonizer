@@ -25,6 +25,14 @@ serve(async (req) => {
       );
     }
 
+    if (!openAIApiKey) {
+      console.error('OpenAI API key not found');
+      return new Response(
+        JSON.stringify({ error: 'OpenAI API key not found. Please check your Supabase configuration.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     console.log(`Processing image edit with prompt: ${prompt}`);
     
     // Fetch the image as a blob
