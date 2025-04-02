@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -34,26 +33,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Fetch user profile data
   const fetchProfile = async (userId: string) => {
     try {
+      console.log("Fetching profile for user:", userId);
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", userId)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching profile:", error);
+        throw error;
+      }
       
       if (data) {
+        console.log("Profile data retrieved:", data);
         setProfile(data);
+      } else {
+        console.log("No profile data found for user");
       }
     } catch (error) {
-      console.error("Error fetching profile:", error);
+      console.error("Error in fetchProfile:", error);
     }
   };
 
   // Set up auth state listener
   useEffect(() => {
+    console.log("Setting up auth state listener");
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log("Auth state changed:", event, currentSession?.user?.id);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
@@ -69,7 +78,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // Check for existing session
+    console.log("Checking for existing session");
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log("Existing session:", currentSession?.user?.id);
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       
@@ -86,17 +97,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signIn = async () => {
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      console.log("Attempting to sign in with Google");
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Sign in error:", error);
+        throw error;
+      }
+      
+      console.log("Sign in succeeded, redirecting to:", data?.url);
     } catch (error: any) {
+      console.error("Sign in error details:", error);
       toast.error(`Failed to sign in: ${error.message}`);
-      console.error("Sign in error:", error);
       setIsLoading(false);
     }
   };

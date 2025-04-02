@@ -1,10 +1,10 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthProvider } from "@/hooks/useAuth";
 import BeforeAfterShowcase from "@/components/BeforeAfterShowcase";
+import AuthDebug from "@/components/AuthDebug";
 
 const HomePage = () => {
   const navigate = useNavigate();
@@ -85,6 +85,9 @@ const HomePage = () => {
       <footer className="container mx-auto px-4 py-12 text-center">
         <p className="text-sm text-muted-foreground">© 2023 PixieCartoon. All rights reserved.</p>
       </footer>
+
+      {/* Debug component - set show to true to display */}
+      <AuthDebug show={true} />
     </div>
   );
 };
