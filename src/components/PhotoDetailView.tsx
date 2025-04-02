@@ -1,13 +1,24 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { ZoomIn, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
 import { 
   Dialog,
   DialogContent,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface Photo {
   id: string;
@@ -21,6 +32,34 @@ interface PhotoDetailViewProps {
 }
 
 const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editInstructions, setEditInstructions] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleSubmitEdit = async () => {
+    if (!editInstructions.trim()) {
+      toast.error("Please enter editing instructions");
+      return;
+    }
+
+    setIsProcessing(true);
+    
+    try {
+      // This would be where you send the edit instructions to be processed
+      // For now, we'll just simulate a successful edit
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast.success("Photo edit submitted successfully!");
+      setIsEditDialogOpen(false);
+      setEditInstructions("");
+    } catch (error: any) {
+      toast.error(`Failed to process edit: ${error.message}`);
+      console.error("Error processing edit:", error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Main photo section */}
@@ -70,14 +109,44 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         <h2 className="text-xl font-semibold mb-4">Edits</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {/* Placeholder for edited photos - this would be populated with actual edited photos */}
-          <Link 
-            to={`/photos/${photo.name}/edit`}
-            className="aspect-square flex items-center justify-center bg-muted rounded-md hover:bg-muted/80 transition-colors"
+          <button
+            onClick={() => setIsEditDialogOpen(true)}
+            className="aspect-square flex items-center justify-center bg-muted rounded-md hover:bg-muted/80 transition-colors border-0"
           >
             <Plus className="h-8 w-8 text-muted-foreground" />
-          </Link>
+          </button>
         </div>
       </div>
+
+      {/* Edit Instructions Dialog */}
+      <AlertDialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Edit Photo with AI</AlertDialogTitle>
+            <AlertDialogDescription>
+              Describe how you want to edit this photo
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          
+          <Textarea
+            placeholder="E.g., 'Make it look like a watercolor painting', 'Add a sunset background'"
+            value={editInstructions}
+            onChange={(e) => setEditInstructions(e.target.value)}
+            className="min-h-[100px] my-4"
+          />
+          
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isProcessing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleSubmitEdit}
+              disabled={isProcessing || !editInstructions.trim()}
+              className={isProcessing ? "opacity-50 cursor-not-allowed" : ""}
+            >
+              {isProcessing ? "Processing..." : "Submit"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
