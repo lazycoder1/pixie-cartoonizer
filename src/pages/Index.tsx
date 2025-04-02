@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -86,8 +87,8 @@ const HomePage = () => {
         <p className="text-sm text-muted-foreground">© 2023 PixieCartoon. All rights reserved.</p>
       </footer>
 
-      {/* Debug component - set show to true to display */}
-      <AuthDebug show={true} />
+      {/* Debug component - set show to false to hide */}
+      <AuthDebug show={false} />
     </div>
   );
 };
