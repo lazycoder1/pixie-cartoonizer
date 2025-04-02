@@ -16,10 +16,21 @@ const AuthDebug = ({ show = false }) => {
         <p><strong>Path:</strong> {window.location.pathname}</p>
         <p><strong>Auth State:</strong> {user ? 'Signed In' : 'Signed Out'}</p>
         <p><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</p>
-        <p><strong>Site URL (needed for Supabase):</strong> {window.location.origin}</p>
-        <p><strong>Redirect URL (needed for Supabase):</strong> {window.location.origin}</p>
+        <p className="font-bold mt-2 text-yellow-300">Supabase Settings:</p>
+        <p><strong>Site URL:</strong> {window.location.origin}</p>
+        <p><strong>Redirect URLs:</strong></p>
+        <p className="pl-4">1. {window.location.origin}</p>
+        <p className="pl-4">2. {window.location.origin}/</p>
+        <p className="pl-4">3. https://id-preview--bb41f734-27f0-41fe-aebd-7511be7f8a0d.lovable.app</p>
+        <p className="pl-4">4. https://preview--pixie-cartoonizer.lovable.app</p>
+        <p className="font-bold mt-2 text-yellow-300">Google OAuth Settings:</p>
+        <p><strong>Authorized JavaScript origins:</strong></p>
+        <p className="pl-4">1. {window.location.origin}</p>
+        <p className="pl-4">2. https://id-preview--bb41f734-27f0-41fe-aebd-7511be7f8a0d.lovable.app</p>
+        <p className="pl-4">3. https://preview--pixie-cartoonizer.lovable.app</p>
         {user && (
           <>
+            <p className="font-bold mt-2 text-green-300">User Data:</p>
             <p><strong>User ID:</strong> {user.id}</p>
             <p><strong>Email:</strong> {user.email}</p>
           </>
