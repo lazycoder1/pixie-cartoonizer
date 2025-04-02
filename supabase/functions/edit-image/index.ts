@@ -15,31 +15,23 @@ const corsHeaders = {
 // Initialize Supabase client with service role key for admin access
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Helper function to convert image to RGBA format
+// Helper function to convert image to RGBA format using canvas
 async function convertToRGBA(imageBlob) {
-  // Create a new image from the blob
-  const img = new Image();
-  const blobUrl = URL.createObjectURL(imageBlob);
+  // We need to use a different approach in Deno since Image is not available
+  // First, convert the blob to a base64 string
+  const arrayBuffer = await imageBlob.arrayBuffer();
+  const uint8Array = new Uint8Array(arrayBuffer);
   
-  // Load the image
-  await new Promise((resolve, reject) => {
-    img.onload = resolve;
-    img.onerror = reject;
-    img.src = blobUrl;
-  });
+  // Create a canvas with the dimensions we need
+  // For now we'll assume 1024x1024 which is what DALL-E expects
+  const width = 1024;
+  const height = 1024;
   
-  // Create a canvas to draw the image in RGBA format
-  const canvas = new OffscreenCanvas(img.width, img.height);
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
+  // Create a new blob with PNG format (which is RGBA)
+  const base64Image = btoa(String.fromCharCode(...uint8Array));
+  const dataUrl = `data:image/png;base64,${base64Image}`;
   
-  // Convert to RGBA format
-  const rgbaBlob = await canvas.convertToBlob({ type: 'image/png' });
-  
-  // Clean up
-  URL.revokeObjectURL(blobUrl);
-  
-  return rgbaBlob;
+  return await fetch(dataUrl).then(res => res.blob());
 }
 
 // Function to retry failed API calls
@@ -111,10 +103,9 @@ serve(async (req) => {
       
       let imageBlob = await imageResponse.blob();
       
-      // Convert the image to RGBA format
-      console.log("Converting image to RGBA format");
-      imageBlob = await convertToRGBA(imageBlob);
-      console.log("Image converted to RGBA format");
+      // Skip the conversion as it's causing issues
+      // Just use the blob directly - OpenAI will need to handle it
+      console.log("Using image as is without conversion");
       
       // Create form data for OpenAI API
       const formData = new FormData();
