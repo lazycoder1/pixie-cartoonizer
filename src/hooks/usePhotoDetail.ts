@@ -19,6 +19,11 @@ export const usePhotoDetail = (userId: string | undefined, photoName: string | u
     if (userId && photoName) {
       fetchPhoto();
       fetchRelatedPhotos();
+    } else {
+      // Reset state if no userId or photoName
+      setPhoto(null);
+      setRelatedPhotos([]);
+      setLoading(false);
     }
   }, [userId, photoName]);
 

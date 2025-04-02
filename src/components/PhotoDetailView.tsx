@@ -33,6 +33,11 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
     setIsProcessingDialogOpen(true);
   };
 
+  // Return nothing if no photo is provided
+  if (!photo) {
+    return null;
+  }
+
   return (
     <div className="space-y-8">
       <PhotoOriginalView photo={photo} />

@@ -1,6 +1,6 @@
 
-import React from "react";
-import { useParams } from "react-router-dom";
+import React, { useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import PhotoDetailHeader from "@/components/PhotoDetailHeader";
 import PhotoDetailView from "@/components/PhotoDetailView";
@@ -12,7 +12,15 @@ import { usePhotoDetail } from "@/hooks/usePhotoDetail";
 const PhotoDetail = () => {
   const { photoName } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { photo, relatedPhotos, loading } = usePhotoDetail(user?.id, photoName);
+
+  // Redirect to dashboard if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/");
+    }
+  }, [user, loading, navigate]);
 
   if (loading) {
     return <PhotoLoading />;
