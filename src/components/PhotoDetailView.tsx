@@ -1,5 +1,6 @@
+
 import React, { useState } from "react";
-import { ZoomIn, Plus, Trash2, Download, Pencil, Loader2 } from "lucide-react";
+import { ZoomIn, Plus, Trash2, Download, Pencil, Loader2, RefreshCw } from "lucide-react";
 import { 
   Dialog,
   DialogContent,
@@ -34,6 +35,7 @@ interface EditingPhoto {
   instructions: string;
   status: "processing" | "complete" | "failed";
   editedImageUrl?: string;
+  error?: string;
 }
 
 interface PhotoDetailViewProps {
@@ -48,6 +50,8 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
   const [editingPhotos, setEditingPhotos] = useState<EditingPhoto[]>([]);
   const [selectedEdit, setSelectedEdit] = useState<EditingPhoto | null>(null);
   const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
+  const [retryAttempts, setRetryAttempts] = useState(0);
+  const maxRetries = 3;
 
   const handleSubmitEdit = async () => {
     if (!user) {
@@ -65,22 +69,42 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
       return;
     }
 
+    processEdit();
+  };
+
+  const processEdit = async (editToRetry?: EditingPhoto) => {
     setIsProcessing(true);
     
     try {
-      const newEdit: EditingPhoto = {
-        id: `edit-${Date.now()}`,
-        instructions: editInstructions,
-        status: "processing"
-      };
+      const editId = editToRetry?.id || `edit-${Date.now()}`;
+      const instructions = editToRetry?.instructions || editInstructions;
       
-      setEditingPhotos(prev => [newEdit, ...prev]);
-      setIsEditDialogOpen(false);
+      // If this is a new edit (not a retry), add it to the list
+      if (!editToRetry) {
+        const newEdit: EditingPhoto = {
+          id: editId,
+          instructions,
+          status: "processing"
+        };
+        
+        setEditingPhotos(prev => [newEdit, ...prev]);
+        setIsEditDialogOpen(false);
+      } else {
+        // If this is a retry, update the status to processing
+        setEditingPhotos(prev => 
+          prev.map(item => 
+            item.id === editId 
+              ? { ...item, status: "processing", error: undefined } 
+              : item
+          )
+        );
+      }
       
+      // Now call the edge function
       const { data, error } = await supabase.functions.invoke('edit-image', {
         body: {
           imageUrl: photo.url,
-          prompt: editInstructions
+          prompt: instructions
         }
       });
       
@@ -94,19 +118,28 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
       
       setEditingPhotos(prev => 
         prev.map(item => 
-          item.id === newEdit.id 
+          item.id === editId
             ? { ...item, status: "complete", editedImageUrl: data.editedImageUrl } 
             : item
         )
       );
       
       toast.success("Photo edited successfully!");
-      setEditInstructions("");
+      
+      if (!editToRetry) {
+        setEditInstructions("");
+      }
+      
+      // Reset retry count on success
+      setRetryAttempts(0);
+      
     } catch (error: any) {
+      const editId = editToRetry?.id || `edit-${Date.now()}`;
+      
       setEditingPhotos(prev => 
         prev.map(item => 
-          item.id === `edit-${Date.now()}` 
-            ? { ...item, status: "failed" } 
+          item.id === editId
+            ? { ...item, status: "failed", error: error.message } 
             : item
         )
       );
@@ -116,6 +149,16 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleRetry = async (editItem: EditingPhoto) => {
+    if (retryAttempts >= maxRetries) {
+      toast.error("Maximum retry attempts reached. Please try again later.");
+      return;
+    }
+    
+    setRetryAttempts(prev => prev + 1);
+    await processEdit(editItem);
   };
 
   const handleEditClick = (editItem: EditingPhoto) => {
@@ -181,6 +224,11 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
                     alt={`Edited ${photo.name}`} 
                     className="w-full h-full object-cover"
                   />
+                ) : editItem.status === "failed" ? (
+                  <div className="flex flex-col items-center justify-center p-2">
+                    <RefreshCw className="h-8 w-8 text-destructive mb-2" />
+                    <span className="text-xs text-center text-muted-foreground">Failed</span>
+                  </div>
                 ) : (
                   <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
                 )}
@@ -235,6 +283,21 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
                 alt="Edited image" 
                 className="w-full h-full object-contain rounded-lg"
               />
+            ) : selectedEdit?.status === "failed" ? (
+              <div className="flex flex-col items-center justify-center p-4">
+                <div className="text-destructive mb-4">Processing failed</div>
+                <p className="text-sm text-muted-foreground mb-4 text-center">
+                  {selectedEdit.error || "An unknown error occurred"}
+                </p>
+                <Button 
+                  onClick={() => handleRetry(selectedEdit)}
+                  disabled={retryAttempts >= maxRetries || isProcessing}
+                  variant="outline"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry ({maxRetries - retryAttempts} attempts left)
+                </Button>
+              </div>
             ) : (
               <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
             )}
