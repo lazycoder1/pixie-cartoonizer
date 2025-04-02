@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Download, Trash2, Image, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 interface Photo {
   id: string;
@@ -19,6 +18,7 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -32,7 +32,6 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
     try {
       setLoading(true);
       
-      // List all files in the user's folder
       const { data, error } = await supabase.storage
         .from('photos')
         .list(user.id, {
@@ -44,7 +43,6 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
       }
       
       if (data) {
-        // Create URL for each photo
         const photoList: Photo[] = await Promise.all(
           data.map(async (item) => {
             const { data: url } = supabase.storage
@@ -83,12 +81,15 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
       }
       
       toast.success("Photo deleted successfully");
-      // Update the list
       setPhotos(photos.filter(photo => photo.name !== name));
     } catch (error: any) {
       console.error("Error deleting photo:", error);
       toast.error(`Delete failed: ${error.message}`);
     }
+  };
+
+  const handlePhotoClick = (name: string) => {
+    navigate(`/photos/${name}`);
   };
 
   if (loading) {
@@ -116,13 +117,16 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
         <Card key={photo.id} className="overflow-hidden">
           <CardContent className="p-0">
             <div className="relative aspect-square group">
-              <Link to={`/photos/${photo.name}`} className="block w-full h-full">
+              <div 
+                className="w-full h-full cursor-pointer"
+                onClick={() => handlePhotoClick(photo.name)}
+              >
                 <img 
                   src={photo.url} 
                   alt={photo.name} 
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-              </Link>
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
                 <div className="p-3 w-full flex justify-between items-center">
                   <Button 
