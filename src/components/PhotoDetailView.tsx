@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { ZoomIn, Plus, Trash2, Download, Pencil, Loader2 } from "lucide-react";
 import { 
@@ -20,6 +19,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Photo {
   id: string;
@@ -32,6 +33,7 @@ interface EditingPhoto {
   id: string;
   instructions: string;
   status: "processing" | "complete" | "failed";
+  editedImageUrl?: string;
 }
 
 interface PhotoDetailViewProps {
@@ -39,6 +41,7 @@ interface PhotoDetailViewProps {
 }
 
 const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
+  const { user, useCredit } = useAuth();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editInstructions, setEditInstructions] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -47,16 +50,24 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
   const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
 
   const handleSubmitEdit = async () => {
+    if (!user) {
+      toast.error("You must be logged in to edit photos");
+      return;
+    }
+    
     if (!editInstructions.trim()) {
       toast.error("Please enter editing instructions");
+      return;
+    }
+
+    if (!await useCredit()) {
+      toast.error("No credits available. Please add credits to your account.");
       return;
     }
 
     setIsProcessing(true);
     
     try {
-      // This would be where you send the edit instructions to be processed
-      // For now, we'll just simulate a successful edit
       const newEdit: EditingPhoto = {
         id: `edit-${Date.now()}`,
         instructions: editInstructions,
@@ -64,11 +75,42 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
       };
       
       setEditingPhotos(prev => [newEdit, ...prev]);
-      
-      toast.success("Photo edit submitted successfully!");
       setIsEditDialogOpen(false);
+      
+      const { data, error } = await supabase.functions.invoke('edit-image', {
+        body: {
+          imageUrl: photo.url,
+          prompt: editInstructions
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Edge function error: ${error.message}`);
+      }
+      
+      if (data.error) {
+        throw new Error(`API error: ${data.error}`);
+      }
+      
+      setEditingPhotos(prev => 
+        prev.map(item => 
+          item.id === newEdit.id 
+            ? { ...item, status: "complete", editedImageUrl: data.editedImageUrl } 
+            : item
+        )
+      );
+      
+      toast.success("Photo edited successfully!");
       setEditInstructions("");
     } catch (error: any) {
+      setEditingPhotos(prev => 
+        prev.map(item => 
+          item.id === `edit-${Date.now()}` 
+            ? { ...item, status: "failed" } 
+            : item
+        )
+      );
+      
       toast.error(`Failed to process edit: ${error.message}`);
       console.error("Error processing edit:", error);
     } finally {
@@ -83,7 +125,6 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
 
   return (
     <div className="space-y-8">
-      {/* Main photo section */}
       <div className="bg-background rounded-lg shadow-md p-4 flex justify-center">
         <div className="max-w-md">
           <h1 className="text-2xl font-bold mb-4 text-center">
@@ -122,14 +163,11 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         </div>
       </div>
       
-      {/* Horizontal separator */}
       <div className="border-t border-gray-200 my-4"></div>
       
-      {/* Edits section */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Edits</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {/* Processing edits */}
           {editingPhotos.map((editItem) => (
             <button
               key={editItem.id}
@@ -137,12 +175,19 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
               className="aspect-square flex flex-col items-center justify-center bg-muted rounded-md transition-colors border-0 overflow-hidden"
             >
               <div className="flex-grow flex items-center justify-center w-full">
-                <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                {editItem.status === "complete" && editItem.editedImageUrl ? (
+                  <img 
+                    src={editItem.editedImageUrl} 
+                    alt={`Edited ${photo.name}`} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                )}
               </div>
             </button>
           ))}
-
-          {/* Add new edit button */}
+          
           <button
             onClick={() => setIsEditDialogOpen(true)}
             className="aspect-square flex items-center justify-center bg-muted rounded-md hover:bg-muted/80 transition-colors border-0"
@@ -152,7 +197,6 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         </div>
       </div>
 
-      {/* Edit Instructions Dialog */}
       <AlertDialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
@@ -182,28 +226,42 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Processing Image Dialog */}
       <Dialog open={isProcessingDialogOpen} onOpenChange={setIsProcessingDialogOpen}>
         <DialogContent className="max-w-md flex flex-col">
-          {/* Image area with loading spinner */}
           <div className="aspect-[3/4] bg-muted rounded-lg mb-4 flex items-center justify-center">
-            <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+            {selectedEdit?.status === "complete" && selectedEdit.editedImageUrl ? (
+              <img 
+                src={selectedEdit.editedImageUrl}
+                alt="Edited image" 
+                className="w-full h-full object-contain rounded-lg"
+              />
+            ) : (
+              <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+            )}
           </div>
 
-          {/* Action buttons */}
           <div className="flex justify-between mb-4">
             <Button variant="outline" size="sm" className="flex items-center">
               <Trash2 className="h-4 w-4 mr-1" />
               Delete
             </Button>
             
-            <Button variant="outline" size="sm" className="flex items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center"
+              disabled={!(selectedEdit?.status === "complete" && selectedEdit.editedImageUrl)}
+              onClick={() => {
+                if (selectedEdit?.editedImageUrl) {
+                  window.open(selectedEdit.editedImageUrl, '_blank');
+                }
+              }}
+            >
               <Download className="h-4 w-4 mr-1" />
               Download
             </Button>
           </div>
 
-          {/* Instruction text with edit button */}
           <div className="bg-muted rounded-full py-2 px-4 flex justify-between items-center">
             <p className="text-sm truncate mr-2">
               {selectedEdit?.instructions || "Processing your edit..."}
