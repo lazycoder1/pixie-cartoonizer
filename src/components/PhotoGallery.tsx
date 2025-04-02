@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Download, Trash2, Image, Loader2 } from "lucide-react";
+import { Loader2, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -68,26 +68,6 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
     }
   };
 
-  const handleDelete = async (name: string) => {
-    if (!user) return;
-    
-    try {
-      const { error } = await supabase.storage
-        .from('photos')
-        .remove([`${user.id}/${name}`]);
-        
-      if (error) {
-        throw error;
-      }
-      
-      toast.success("Photo deleted successfully");
-      setPhotos(photos.filter(photo => photo.name !== name));
-    } catch (error: any) {
-      console.error("Error deleting photo:", error);
-      toast.error(`Delete failed: ${error.message}`);
-    }
-  };
-
   const handlePhotoClick = (name: string) => {
     navigate(`/photos/${name}`);
   };
@@ -116,50 +96,15 @@ export const PhotoGallery = ({ refreshTrigger }: { refreshTrigger: number }) => 
       {photos.map((photo) => (
         <Card key={photo.id} className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="relative aspect-square group">
-              <div 
-                className="w-full h-full cursor-pointer"
-                onClick={() => handlePhotoClick(photo.name)}
-              >
-                <img 
-                  src={photo.url} 
-                  alt={photo.name} 
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end">
-                <div className="p-3 w-full flex justify-between items-center">
-                  <Button 
-                    size="sm" 
-                    variant="destructive"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleDelete(photo.name);
-                    }}
-                    className="flex items-center"
-                  >
-                    <Trash2 size={14} className="mr-1" />
-                    Delete
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="secondary"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const link = document.createElement('a');
-                      link.href = photo.url;
-                      link.download = photo.name;
-                      link.click();
-                    }}
-                    className="flex items-center"
-                  >
-                    <Download size={14} className="mr-1" />
-                    Download
-                  </Button>
-                </div>
-              </div>
+            <div 
+              className="relative aspect-square cursor-pointer"
+              onClick={() => handlePhotoClick(photo.name)}
+            >
+              <img 
+                src={photo.url} 
+                alt={photo.name} 
+                className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+              />
             </div>
           </CardContent>
         </Card>
