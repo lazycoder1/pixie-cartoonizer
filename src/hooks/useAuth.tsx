@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
@@ -115,6 +116,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log("Sign in succeeded, redirecting to:", data?.url);
+      // Navigate to the URL provided by Supabase
+      if (data?.url) {
+        window.location.href = data.url;
+      }
     } catch (error: any) {
       console.error("Sign in error details:", error);
       toast.error(`Failed to sign in: ${error.message}`);

@@ -15,6 +15,7 @@ const AuthDebug = ({ show = false }) => {
         <p><strong>Path:</strong> {window.location.pathname}</p>
         <p><strong>Auth State:</strong> {user ? 'Signed In' : 'Signed Out'}</p>
         <p><strong>Loading:</strong> {isLoading ? 'Yes' : 'No'}</p>
+        <p><strong>Redirect URL:</strong> {window.location.origin}</p>
         {user && (
           <>
             <p><strong>User ID:</strong> {user.id}</p>
