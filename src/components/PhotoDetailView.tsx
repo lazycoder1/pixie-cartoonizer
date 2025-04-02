@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ZoomIn, Plus, Trash2, Download, Pencil, Loader2, RefreshCw } from "lucide-react";
 import { 
   Dialog,
@@ -51,7 +51,52 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
   const [selectedEdit, setSelectedEdit] = useState<EditingPhoto | null>(null);
   const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
   const [retryAttempts, setRetryAttempts] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const maxRetries = 3;
+
+  // Load previously edited photos when component mounts
+  useEffect(() => {
+    if (user && photo) {
+      loadEditedPhotos();
+    }
+  }, [user, photo]);
+
+  const loadEditedPhotos = async () => {
+    if (!user || !photo) return;
+    
+    setIsLoading(true);
+    try {
+      // Query for edited photos related to this photo
+      const { data, error } = await supabase
+        .from('edited_photos')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('original_photo_id', photo.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        // Convert database records to EditingPhoto format
+        const loadedEdits: EditingPhoto[] = data.map(edit => ({
+          id: edit.id,
+          instructions: edit.prompt,
+          status: edit.status,
+          editedImageUrl: edit.edited_image_url,
+          error: edit.error_message
+        }));
+        
+        setEditingPhotos(loadedEdits);
+      }
+    } catch (error: any) {
+      console.error("Error loading edited photos:", error);
+      toast.error(`Failed to load edited photos: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSubmitEdit = async () => {
     if (!user) {
@@ -73,6 +118,8 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
   };
 
   const processEdit = async (editToRetry?: EditingPhoto) => {
+    if (!user || !photo) return;
+    
     setIsProcessing(true);
     
     try {
@@ -100,11 +147,50 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         );
       }
       
-      // Now call the edge function
+      // First, save the edit request to the database
+      let savedEditId: string | undefined;
+      
+      if (!editToRetry) {
+        // Only create a new record if this is not a retry
+        const { data: editData, error: editError } = await supabase
+          .from('edited_photos')
+          .insert({
+            user_id: user.id,
+            original_photo_id: photo.id,
+            prompt: instructions,
+            status: 'processing'
+          })
+          .select('id')
+          .single();
+          
+        if (editError) {
+          console.error('Error creating edit record:', editError);
+          throw new Error(`Failed to create edit record: ${editError.message}`);
+        }
+        
+        savedEditId = editData.id;
+      } else {
+        // For retries, update the existing record
+        const { error: updateError } = await supabase
+          .from('edited_photos')
+          .update({ status: 'processing', error_message: null })
+          .eq('id', editToRetry.id);
+          
+        if (updateError) {
+          console.error('Error updating edit record:', updateError);
+          throw new Error(`Failed to update edit record: ${updateError.message}`);
+        }
+        
+        savedEditId = editToRetry.id;
+      }
+      
+      // Now call the edge function with the database ID
       const { data, error } = await supabase.functions.invoke('edit-image', {
         body: {
           imageUrl: photo.url,
-          prompt: instructions
+          prompt: instructions,
+          userId: user.id,
+          photoId: photo.id
         }
       });
       
@@ -116,6 +202,7 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         throw new Error(`API error: ${data.error}`);
       }
       
+      // Update our local state
       setEditingPhotos(prev => 
         prev.map(item => 
           item.id === editId
@@ -166,6 +253,31 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
     setIsProcessingDialogOpen(true);
   };
 
+  const handleDeleteEdit = async (editId: string) => {
+    if (!user) return;
+    
+    try {
+      // Delete from database
+      const { error } = await supabase
+        .from('edited_photos')
+        .delete()
+        .eq('id', editId)
+        .eq('user_id', user.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update UI
+      setEditingPhotos(prev => prev.filter(item => item.id !== editId));
+      toast.success("Edit deleted successfully");
+      setIsProcessingDialogOpen(false);
+    } catch (error: any) {
+      console.error("Error deleting edit:", error);
+      toast.error(`Failed to delete edit: ${error.message}`);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="bg-background rounded-lg shadow-md p-4 flex justify-center">
@@ -210,39 +322,48 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
       
       <div>
         <h2 className="text-xl font-semibold mb-4">Edits</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {editingPhotos.map((editItem) => (
+        
+        {isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="aspect-square bg-muted animate-pulse rounded-md"></div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {editingPhotos.map((editItem) => (
+              <button
+                key={editItem.id}
+                onClick={() => handleEditClick(editItem)}
+                className="aspect-square flex flex-col items-center justify-center bg-muted rounded-md transition-colors border-0 overflow-hidden"
+              >
+                <div className="flex-grow flex items-center justify-center w-full">
+                  {editItem.status === "complete" && editItem.editedImageUrl ? (
+                    <img 
+                      src={editItem.editedImageUrl} 
+                      alt={`Edited ${photo.name}`} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : editItem.status === "failed" ? (
+                    <div className="flex flex-col items-center justify-center p-2">
+                      <RefreshCw className="h-8 w-8 text-destructive mb-2" />
+                      <span className="text-xs text-center text-muted-foreground">Failed</span>
+                    </div>
+                  ) : (
+                    <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+                  )}
+                </div>
+              </button>
+            ))}
+            
             <button
-              key={editItem.id}
-              onClick={() => handleEditClick(editItem)}
-              className="aspect-square flex flex-col items-center justify-center bg-muted rounded-md transition-colors border-0 overflow-hidden"
+              onClick={() => setIsEditDialogOpen(true)}
+              className="aspect-square flex items-center justify-center bg-muted rounded-md hover:bg-muted/80 transition-colors border-0"
             >
-              <div className="flex-grow flex items-center justify-center w-full">
-                {editItem.status === "complete" && editItem.editedImageUrl ? (
-                  <img 
-                    src={editItem.editedImageUrl} 
-                    alt={`Edited ${photo.name}`} 
-                    className="w-full h-full object-cover"
-                  />
-                ) : editItem.status === "failed" ? (
-                  <div className="flex flex-col items-center justify-center p-2">
-                    <RefreshCw className="h-8 w-8 text-destructive mb-2" />
-                    <span className="text-xs text-center text-muted-foreground">Failed</span>
-                  </div>
-                ) : (
-                  <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
-                )}
-              </div>
+              <Plus className="h-8 w-8 text-muted-foreground" />
             </button>
-          ))}
-          
-          <button
-            onClick={() => setIsEditDialogOpen(true)}
-            className="aspect-square flex items-center justify-center bg-muted rounded-md hover:bg-muted/80 transition-colors border-0"
-          >
-            <Plus className="h-8 w-8 text-muted-foreground" />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       <AlertDialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -290,7 +411,7 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
                   {selectedEdit.error || "An unknown error occurred"}
                 </p>
                 <Button 
-                  onClick={() => handleRetry(selectedEdit)}
+                  onClick={() => selectedEdit && handleRetry(selectedEdit)}
                   disabled={retryAttempts >= maxRetries || isProcessing}
                   variant="outline"
                 >
@@ -304,7 +425,12 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
           </div>
 
           <div className="flex justify-between mb-4">
-            <Button variant="outline" size="sm" className="flex items-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="flex items-center"
+              onClick={() => selectedEdit && handleDeleteEdit(selectedEdit.id)}
+            >
               <Trash2 className="h-4 w-4 mr-1" />
               Delete
             </Button>
