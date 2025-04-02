@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ZoomIn, ZoomOut } from "lucide-react";
+import { ArrowLeft, ZoomIn, Edit } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -128,12 +128,20 @@ const PhotoDetail = () => {
     <div className="min-h-screen p-6">
       {/* Header with back button */}
       <div className="container mx-auto max-w-6xl">
-        <Link to="/dashboard">
-          <Button variant="outline" className="mb-6">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Gallery
-          </Button>
-        </Link>
+        <div className="flex justify-between items-center mb-6">
+          <Link to="/dashboard">
+            <Button variant="outline">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Gallery
+            </Button>
+          </Link>
+          <Link to={`/photos/${photoName}/edit`}>
+            <Button>
+              <Edit className="mr-2 h-4 w-4" />
+              Edit with AI
+            </Button>
+          </Link>
+        </div>
         
         {/* Main Photo Section */}
         <div className="bg-background rounded-lg shadow-md p-4 mb-8">

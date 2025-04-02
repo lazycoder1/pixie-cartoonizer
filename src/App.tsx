@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import PhotoDetail from "./pages/PhotoDetail";
+import PhotoEdit from "./pages/PhotoEdit";
 import NotFound from "./pages/NotFound";
 
 // Create a new QueryClient instance for React Query
@@ -25,6 +26,7 @@ const App = () => {
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/photos/:photoName" element={<PhotoDetail />} />
+              <Route path="/photos/:photoName/edit" element={<PhotoEdit />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
