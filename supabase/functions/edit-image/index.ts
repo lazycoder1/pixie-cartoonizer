@@ -15,6 +15,33 @@ const corsHeaders = {
 // Initialize Supabase client with service role key for admin access
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+// Helper function to convert image to RGBA format
+async function convertToRGBA(imageBlob) {
+  // Create a new image from the blob
+  const img = new Image();
+  const blobUrl = URL.createObjectURL(imageBlob);
+  
+  // Load the image
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = reject;
+    img.src = blobUrl;
+  });
+  
+  // Create a canvas to draw the image in RGBA format
+  const canvas = new OffscreenCanvas(img.width, img.height);
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  
+  // Convert to RGBA format
+  const rgbaBlob = await canvas.convertToBlob({ type: 'image/png' });
+  
+  // Clean up
+  URL.revokeObjectURL(blobUrl);
+  
+  return rgbaBlob;
+}
+
 // Function to retry failed API calls
 async function retryOperation(operation, maxRetries = 3, delay = 1000) {
   let lastError;
@@ -82,7 +109,12 @@ serve(async (req) => {
         return response;
       });
       
-      const imageBlob = await imageResponse.blob();
+      let imageBlob = await imageResponse.blob();
+      
+      // Convert the image to RGBA format
+      console.log("Converting image to RGBA format");
+      imageBlob = await convertToRGBA(imageBlob);
+      console.log("Image converted to RGBA format");
       
       // Create form data for OpenAI API
       const formData = new FormData();
