@@ -87,13 +87,13 @@ serve(async (req) => {
       // Create form data for OpenAI API
       const formData = new FormData();
       formData.append('image', imageBlob, 'image.png');
+      formData.append('prompt', prompt); // Add the prompt for DALL-E image editing
+      formData.append('n', '1'); // Generate one image
+      formData.append('size', '1024x1024'); // Image size
       
-      // Important: For image variations, we don't use prompt parameter
-      // Instead, we need to call a different endpoint if we want to use prompts
-      
-      // Call OpenAI API to create image variations with retry
+      // Call OpenAI API to create image edits with retry
       const openAIResponse = await retryOperation(async () => {
-        const response = await fetch('https://api.openai.com/v1/images/variations', {
+        const response = await fetch('https://api.openai.com/v1/images/edits', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${openAIApiKey}`,
@@ -116,20 +116,37 @@ serve(async (req) => {
         // Save the edited image data
         const { data: editData, error: editError } = await supabase
           .from('edited_photos')
-          .insert({
-            user_id: userId,
-            original_photo_id: photoId,
-            prompt: prompt,
+          .update({
             edited_image_url: editedImageUrl,
             status: 'complete'
           })
+          .match({ user_id: userId, original_photo_id: photoId, prompt: prompt })
           .select('id')
           .single();
           
         if (editError) {
-          console.error('Error storing edited photo data:', editError);
+          console.error('Error updating edited photo data:', editError);
+          
+          // If no matching record is found, insert a new one
+          const { data: insertData, error: insertError } = await supabase
+            .from('edited_photos')
+            .insert({
+              user_id: userId,
+              original_photo_id: photoId,
+              prompt: prompt,
+              edited_image_url: editedImageUrl,
+              status: 'complete'
+            })
+            .select('id')
+            .single();
+            
+          if (insertError) {
+            console.error('Error inserting edited photo data:', insertError);
+          } else {
+            console.log('Edited photo inserted successfully with ID:', insertData.id);
+          }
         } else {
-          console.log('Edited photo stored successfully with ID:', editData.id);
+          console.log('Edited photo updated successfully with ID:', editData.id);
         }
       } else {
         console.log('No userId or photoId provided, skipping database storage');
@@ -152,13 +169,11 @@ serve(async (req) => {
         try {
           await supabase
             .from('edited_photos')
-            .insert({
-              user_id: userId,
-              original_photo_id: photoId,
-              prompt: prompt,
+            .update({
               status: 'failed',
               error_message: apiError.message
-            });
+            })
+            .match({ user_id: userId, original_photo_id: photoId, prompt: prompt });
         } catch (dbError) {
           console.error('Error storing failed edit record:', dbError);
         }

@@ -3,4 +3,3 @@ project_id = "dqpmkqudldcswpbizboj"
 
 [functions."edit-image"]
 verify_jwt = false
-
