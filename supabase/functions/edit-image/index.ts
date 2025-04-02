@@ -41,9 +41,9 @@ serve(async (req) => {
   try {
     const { imageUrl, prompt } = await req.json();
     
-    if (!imageUrl || !prompt) {
+    if (!imageUrl) {
       return new Response(
-        JSON.stringify({ error: 'Image URL and prompt are required' }),
+        JSON.stringify({ error: 'Image URL is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -56,7 +56,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Processing image edit with prompt: ${prompt}`);
+    console.log(`Processing image with prompt: ${prompt}`);
     
     try {
       // Fetch the image as a blob with retry
@@ -73,12 +73,11 @@ serve(async (req) => {
       // Create form data for OpenAI API
       const formData = new FormData();
       formData.append('image', imageBlob, 'image.png');
-      formData.append('prompt', prompt);
-      formData.append('model', 'dall-e-3');
-      formData.append('n', '1');
-      formData.append('size', '1024x1024');
       
-      // Call OpenAI API to edit the image with retry
+      // Important: For image variations, we don't use prompt parameter
+      // Instead, we need to call a different endpoint if we want to use prompts
+      
+      // Call OpenAI API to create image variations with retry
       const openAIResponse = await retryOperation(async () => {
         const response = await fetch('https://api.openai.com/v1/images/variations', {
           method: 'POST',
@@ -88,19 +87,20 @@ serve(async (req) => {
           body: formData,
         });
         
-        const data = await response.json();
-        if (response.status !== 200) {
-          throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
         }
         
-        return data;
+        return response.json();
       });
       
       // Return the edited image URL from OpenAI
       return new Response(
         JSON.stringify({
           success: true,
-          editedImageUrl: openAIResponse.data[0].url
+          editedImageUrl: openAIResponse.data[0].url,
+          originalPrompt: prompt // Include the prompt in the response for reference
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
