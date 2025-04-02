@@ -1,12 +1,14 @@
 
 import React, { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
-import ImageUploader from "@/components/ImageUploader";
-import Gallery from "@/components/Gallery";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { cartoonizeImage } from "@/services/api";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { PhotoUploader } from "@/components/PhotoUploader";
+import { PhotoGallery } from "@/components/PhotoGallery";
+import ImageUploader from "@/components/ImageUploader";
+import { cartoonizeImage } from "@/services/api";
+import Gallery from "@/components/Gallery";
 
 interface CartoonImage {
   id: string;
@@ -21,6 +23,8 @@ const DashboardContent = () => {
   const [images, setImages] = useState<CartoonImage[]>([]);
   const { user, useCredit } = useAuth();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'cartoons' | 'photos'>('cartoons');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Redirect non-logged in users to home page
   useEffect(() => {
@@ -49,6 +53,11 @@ const DashboardContent = () => {
 
   const handleImageSelect = (file: File) => {
     setSelectedImage(file);
+  };
+
+  const handlePhotoUploaded = () => {
+    // Trigger a refresh of the gallery
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const processImage = async () => {
@@ -98,24 +107,49 @@ const DashboardContent = () => {
       <Navbar />
       
       <main className="container mx-auto px-4 py-8">
-        <div className="text-center max-w-2xl mx-auto mb-12">
+        <div className="text-center max-w-2xl mx-auto mb-8">
           <h1 className="text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-brand-purple-dark">
-            Your Photo Gallery
+            Your Dashboard
           </h1>
           <p className="text-lg text-muted-foreground">
             Upload your images and transform them into beautiful cartoons.
           </p>
         </div>
         
-        <ImageUploader 
-          onImageSelect={handleImageSelect} 
-          selectedImage={selectedImage}
-          isProcessing={isProcessing}
-          onProcessImage={processImage}
-        />
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8 border-b">
+          <button 
+            className={`px-6 py-3 font-medium text-sm ${activeTab === 'cartoons' ? 'border-b-2 border-brand-purple text-brand-purple' : 'text-muted-foreground'}`}
+            onClick={() => setActiveTab('cartoons')}
+          >
+            Cartoonize Images
+          </button>
+          <button 
+            className={`px-6 py-3 font-medium text-sm ${activeTab === 'photos' ? 'border-b-2 border-brand-purple text-brand-purple' : 'text-muted-foreground'}`}
+            onClick={() => setActiveTab('photos')}
+          >
+            Photo Gallery
+          </button>
+        </div>
         
-        {/* Show user's gallery if they have images */}
-        <Gallery images={images} />
+        {activeTab === 'cartoons' ? (
+          <>
+            <ImageUploader 
+              onImageSelect={handleImageSelect} 
+              selectedImage={selectedImage}
+              isProcessing={isProcessing}
+              onProcessImage={processImage}
+            />
+            
+            {/* Show user's gallery if they have images */}
+            <Gallery images={images} />
+          </>
+        ) : (
+          <>
+            <PhotoUploader onPhotoUploaded={handlePhotoUploaded} />
+            <PhotoGallery refreshTrigger={refreshTrigger} />
+          </>
+        )}
       </main>
     </div>
   );
