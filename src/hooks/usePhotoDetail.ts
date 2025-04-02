@@ -14,6 +14,7 @@ export const usePhotoDetail = (userId: string | undefined, photoName: string | u
   const [photo, setPhoto] = useState<Photo | null>(null);
   const [relatedPhotos, setRelatedPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState(0); // Add a refresh counter
 
   useEffect(() => {
     if (userId && photoName) {
@@ -25,13 +26,33 @@ export const usePhotoDetail = (userId: string | undefined, photoName: string | u
       setRelatedPhotos([]);
       setLoading(false);
     }
-  }, [userId, photoName]);
+  }, [userId, photoName, lastRefresh]); // Add lastRefresh to dependencies
 
   const fetchPhoto = async () => {
     if (!userId || !photoName) return;
     
     try {
       setLoading(true);
+      
+      // First, check if the photo exists in storage
+      const { data: fileData, error: fileError } = await supabase.storage
+        .from('photos')
+        .list(userId, {
+          search: photoName
+        });
+        
+      if (fileError) {
+        throw fileError;
+      }
+
+      if (!fileData || fileData.length === 0) {
+        console.error("Photo not found in storage:", photoName);
+        setPhoto(null);
+        return;
+      }
+      
+      // Get the file metadata for created_at date
+      const fileInfo = fileData[0];
       
       // Get the URL for the main photo
       const { data: url } = supabase.storage
@@ -40,13 +61,14 @@ export const usePhotoDetail = (userId: string | undefined, photoName: string | u
         
       setPhoto({
         id: photoName,
-        url: url.publicUrl,
+        url: url.publicUrl + `?cache=${Date.now()}`, // Add cache-busting query param
         name: photoName,
-        created_at: new Date().toISOString() // We don't have this info from the URL, so using current time
+        created_at: fileInfo.created_at || new Date().toISOString()
       });
     } catch (error: any) {
       console.error("Error fetching photo:", error);
       toast.error(`Failed to load photo: ${error.message}`);
+      setPhoto(null);
     } finally {
       setLoading(false);
     }
@@ -96,5 +118,10 @@ export const usePhotoDetail = (userId: string | undefined, photoName: string | u
     }
   };
 
-  return { photo, relatedPhotos, loading };
+  // Add refresh function
+  const refreshPhoto = () => {
+    setLastRefresh(Date.now()); // Update the refresh counter to trigger useEffect
+  };
+
+  return { photo, relatedPhotos, loading, refreshPhoto };
 };

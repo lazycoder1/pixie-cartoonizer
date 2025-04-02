@@ -9,6 +9,12 @@ interface PhotoOriginalViewProps {
 }
 
 const PhotoOriginalView = ({ photo }: PhotoOriginalViewProps) => {
+  // Create a cache-busting URL for the image
+  const imageUrl = new URL(photo.url);
+  if (!imageUrl.searchParams.has('cache')) {
+    imageUrl.searchParams.append('cache', Date.now().toString());
+  }
+
   return (
     <div className="bg-background rounded-lg shadow-md p-4 flex justify-center">
       <div className="max-w-md">
@@ -20,7 +26,7 @@ const PhotoOriginalView = ({ photo }: PhotoOriginalViewProps) => {
           <DialogTrigger asChild>
             <div className="relative cursor-zoom-in group mx-auto">
               <img 
-                src={photo.url} 
+                src={imageUrl.toString()} 
                 alt={photo.name} 
                 className="w-full h-auto rounded-md max-h-[40vh] object-contain"
               />
@@ -34,7 +40,7 @@ const PhotoOriginalView = ({ photo }: PhotoOriginalViewProps) => {
           <DialogContent className="max-w-[90vw] max-h-[90vh] w-auto h-auto p-0 bg-transparent border-0">
             <div className="relative">
               <img 
-                src={photo.url} 
+                src={imageUrl.toString()}
                 alt={photo.name}
                 className="max-w-[90vw] max-h-[90vh] object-contain"
               />

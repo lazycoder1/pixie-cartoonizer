@@ -13,7 +13,7 @@ const PhotoDetail = () => {
   const { photoName } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { photo, relatedPhotos, loading } = usePhotoDetail(user?.id, photoName);
+  const { photo, relatedPhotos, loading, refreshPhoto } = usePhotoDetail(user?.id, photoName);
 
   // Redirect to dashboard if not authenticated
   useEffect(() => {
@@ -21,6 +21,11 @@ const PhotoDetail = () => {
       navigate("/");
     }
   }, [user, loading, navigate]);
+
+  // Refresh the photo data when the component mounts
+  useEffect(() => {
+    refreshPhoto();
+  }, [photoName]); // Re-fetch when the photo name changes
 
   if (loading) {
     return <PhotoLoading />;

@@ -64,6 +64,7 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
         onSubmit={() => {
           handleSubmitEdit(editInstructions);
           setEditInstructions("");
+          setIsEditDialogOpen(false);
         }}
       />
 
