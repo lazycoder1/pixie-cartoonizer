@@ -1,6 +1,6 @@
 
 import React, { useState } from "react";
-import { ZoomIn, Plus } from "lucide-react";
+import { ZoomIn, Plus, Trash2, Download, Pencil, Loader2 } from "lucide-react";
 import { 
   Dialog,
   DialogContent,
@@ -19,12 +19,19 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface Photo {
   id: string;
   url: string;
   name: string;
   created_at: string;
+}
+
+interface EditingPhoto {
+  id: string;
+  instructions: string;
+  status: "processing" | "complete" | "failed";
 }
 
 interface PhotoDetailViewProps {
@@ -35,6 +42,9 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editInstructions, setEditInstructions] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [editingPhotos, setEditingPhotos] = useState<EditingPhoto[]>([]);
+  const [selectedEdit, setSelectedEdit] = useState<EditingPhoto | null>(null);
+  const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
 
   const handleSubmitEdit = async () => {
     if (!editInstructions.trim()) {
@@ -47,7 +57,13 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
     try {
       // This would be where you send the edit instructions to be processed
       // For now, we'll just simulate a successful edit
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const newEdit: EditingPhoto = {
+        id: `edit-${Date.now()}`,
+        instructions: editInstructions,
+        status: "processing"
+      };
+      
+      setEditingPhotos(prev => [newEdit, ...prev]);
       
       toast.success("Photo edit submitted successfully!");
       setIsEditDialogOpen(false);
@@ -58,6 +74,11 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleEditClick = (editItem: EditingPhoto) => {
+    setSelectedEdit(editItem);
+    setIsProcessingDialogOpen(true);
   };
 
   return (
@@ -108,7 +129,20 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
       <div>
         <h2 className="text-xl font-semibold mb-4">Edits</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {/* Placeholder for edited photos - this would be populated with actual edited photos */}
+          {/* Processing edits */}
+          {editingPhotos.map((editItem) => (
+            <button
+              key={editItem.id}
+              onClick={() => handleEditClick(editItem)}
+              className="aspect-square flex flex-col items-center justify-center bg-muted rounded-md transition-colors border-0 overflow-hidden"
+            >
+              <div className="flex-grow flex items-center justify-center w-full">
+                <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+              </div>
+            </button>
+          ))}
+
+          {/* Add new edit button */}
           <button
             onClick={() => setIsEditDialogOpen(true)}
             className="aspect-square flex items-center justify-center bg-muted rounded-md hover:bg-muted/80 transition-colors border-0"
@@ -147,6 +181,40 @@ const PhotoDetailView = ({ photo }: PhotoDetailViewProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Processing Image Dialog */}
+      <Dialog open={isProcessingDialogOpen} onOpenChange={setIsProcessingDialogOpen}>
+        <DialogContent className="max-w-md flex flex-col">
+          {/* Image area with loading spinner */}
+          <div className="aspect-[3/4] bg-muted rounded-lg mb-4 flex items-center justify-center">
+            <Loader2 className="h-12 w-12 text-muted-foreground animate-spin" />
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex justify-between mb-4">
+            <Button variant="outline" size="sm" className="flex items-center">
+              <Trash2 className="h-4 w-4 mr-1" />
+              Delete
+            </Button>
+            
+            <Button variant="outline" size="sm" className="flex items-center">
+              <Download className="h-4 w-4 mr-1" />
+              Download
+            </Button>
+          </div>
+
+          {/* Instruction text with edit button */}
+          <div className="bg-muted rounded-full py-2 px-4 flex justify-between items-center">
+            <p className="text-sm truncate mr-2">
+              {selectedEdit?.instructions || "Processing your edit..."}
+            </p>
+            <Button variant="ghost" size="sm" className="flex-shrink-0">
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
