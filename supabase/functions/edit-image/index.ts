@@ -8,6 +8,7 @@ import { corsHeaders, retryOperation } from "./utils.ts";
 import { storeEditResults } from "./database.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -38,6 +39,14 @@ serve(async (req) => {
       );
     }
 
+    if (!geminiApiKey) {
+      console.error('Gemini API key not found');
+      return new Response(
+        JSON.stringify({ error: 'Gemini API key not found. Please check your Supabase configuration.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Supabase credentials not found');
       return new Response(
@@ -50,7 +59,7 @@ serve(async (req) => {
     
     try {
       // Process the image and get the edited image URL
-      const editedImageUrl = await processImage(imageUrl, prompt, openAIApiKey);
+      const editedImageUrl = await processImage(imageUrl, prompt, openAIApiKey, geminiApiKey);
       
       // Store the results in the database if userId and photoId are provided
       if (userId && photoId) {
